@@ -55,6 +55,7 @@ class DataBackup {
 		uint8_t readVcc();
 		void lowPowerBackup();
 		uint16_t EEPROMBackup( uint16_t index );
+		T EEPROMRestore( const T &data, uint16_t index);
 		uint8_t getCRC8();
 
 	private:

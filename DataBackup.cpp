@@ -29,7 +29,7 @@ SOFTWARE.
 //Constructors
 
 template <class T>
-DataBackup<T>::DataBackup(const T &data){
+DataBackup<T>::DataBackup(const T &data) {
 	this->partitions = 1;
     this->data_address = &data;
     this->data_size = sizeof(T);
@@ -47,9 +47,9 @@ uint8_t DataBackup<T>::getCRC8() {
  * Outputs: none
  */
 template <class T>
-uint16_t DataBackup<T>::EEPROMBackup( uint16_t index ){
+uint16_t DataBackup<T>::EEPROMBackup( uint16_t index ) {
   /*Initializing and grabbing the value of the first byte and placing it into a variable*/
-  uint8_t *ptr = (uint8_t*) data_address;
+  uint8_t *ptr = (uint8_t*) &data_address;
   /*This loop will run until it reaches the end of the structure in memory*/
   for(int count = 0; count < data_size; count++){
     /*We save each byte individually to the EEPROM*/
@@ -60,6 +60,22 @@ uint16_t DataBackup<T>::EEPROMBackup( uint16_t index ){
   }
   return index;
 }
+
+template <class T>
+T DataBackup<T>::EEPROMRestore(const T &data, uint16_t index) {
+  /*Initializing and grabbing the value of the first byte and placing it into a variable*/
+  uint8_t *ptr = (uint8_t*) &data;
+  /*This loop will run until it reaches the end of the structure in memory*/
+  for(int count = 0; count < data_size; count++){
+    /*Save EEPROM data to the pointer we initialized*/
+    *ptr = EEPROM_read(index);
+    /*Increment the pointer and index*/
+    *ptr++;
+    index++;
+  }
+  return data;
+}
+
 
 /*
  * Write data to EEPROM, NOTE: interrupts are disabled while writing 
