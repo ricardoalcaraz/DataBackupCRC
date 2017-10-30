@@ -32,7 +32,7 @@ template <class T>
 DataBackup<T>::DataBackup(const T &data){
 	this->partitions = 1;
     this->data_address = &data;
-    this->data_size = sizeof(data);
+    this->data_size = sizeof(T);
     this->index = 0;
 }
 
