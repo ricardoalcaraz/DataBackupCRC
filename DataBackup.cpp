@@ -34,16 +34,21 @@ DataBackup<T>::DataBackup(const T &data) {
     this->data_address = &data;
     this->data_size = sizeof(T);
     this->index = 0;
+    this->signature = 0b01011010;
 }
 
+/*Returns 8 bit CRC of the data
+ *Inputs: None
+ *Outputs: uint8 - 8 bit crc 
+ */
 template <class T>
 uint8_t DataBackup<T>::getCRC8() {
     return key.smbus( (const uint8_t*) data_address, (const uint16_t) data_size );
 }
 
 
-/* Function to backup Maze Values to EEPROM
- * Inputs: Maze Values data location
+/* Function to backup generic object to EEPROM
+ * Inputs: uint16 - index
  * Outputs: none
  */
 template <class T>
@@ -74,6 +79,21 @@ T DataBackup<T>::EEPROMRestore(const T &data, uint16_t index) {
     index++;
   }
   return data;
+}
+
+/*Function to backup generic object data with CRC and a signature
+ *Inputs:None
+ *Outputs:None
+ */
+template <class T>
+void DataBackup<T>::lowPowerBackup() {
+	//Writing the low power backup signature to the first byte of the EEPROM
+	EEPROM_write(index, signature); index++;
+	//Backing up the data
+	index = EEPROMBackup( index );
+	//Writing CRC value to last value in memory
+	uint8_t crc = getCRC8();
+	EEPROM_write( ++index, crc );
 }
 
 
