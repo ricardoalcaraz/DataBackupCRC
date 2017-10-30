@@ -54,6 +54,7 @@ class DataBackup {
 		uint16_t EEPROMBackup( uint16_t index );
 		T EEPROMRestore( const T &data, uint16_t index);
 		uint8_t getCRC8();
+		T lowPowerRestore();
 
 	private:
 		uint8_t EEPROM_read(uint16_t uiAddress);
@@ -63,7 +64,6 @@ class DataBackup {
 		uint8_t signature;
 		uint16_t data_address;
 		uint16_t data_size;
-		uint16_t index;
 		FastCRC8 key;
 };
 

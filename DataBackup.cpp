@@ -33,7 +33,6 @@ DataBackup<T>::DataBackup(const T &data) {
 	this->partitions = 1;
     this->data_address = &data;
     this->data_size = sizeof(T);
-    this->index = 0;
     this->signature = 0b01011010;
 }
 
@@ -87,13 +86,39 @@ T DataBackup<T>::EEPROMRestore(const T &data, uint16_t index) {
  */
 template <class T>
 void DataBackup<T>::lowPowerBackup() {
+	uint16_t index = 0;
 	//Writing the low power backup signature to the first byte of the EEPROM
 	EEPROM_write(index, signature); index++;
 	//Backing up the data
 	index = EEPROMBackup( index );
 	//Writing CRC value to last value in memory
-	uint8_t crc = getCRC8();
+	uint8_t crc = ~(getCRC8());
 	EEPROM_write( ++index, crc );
+}
+
+/*Function to backup generic object data with CRC and a signature
+ *Inputs:None
+ *Outputs:None
+ */
+template <class T>
+T DataBackup<T>::lowPowerRestore() {
+	uint16_t index = 0;
+	T temp;
+	//Writing the low power backup signature to the first byte of the EEPROM
+	uint8_t signature_check = EEPROM_read(0, signature);
+	
+	if( signature_check == signature ){
+		T temp = EEPROMRestore( temp, 1 );
+	}
+	uint8_t temp_crc = key.smbus( (const uint8_t*) &temp, sizeof(T) );
+	uint8_t crc = EEPROM_read( data_size + 1 );
+	if( temp_crc & crc == 0 ) {
+		
+		return temp;
+	} else {
+		return;
+	}
+
 }
 
 
