@@ -21,16 +21,44 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+/*Made for Atmega32u4 */
 #include "DataBackup.h"
 #include "Arduino.h"
-
+#include "FastCRC_tables.h"
 //Constructors
-DataBackup::DataBackup(uint8_t number_of_partitions){
-	this->partitions = number_of_partitions;
+
+template <class T>
+DataBackup<T>::DataBackup(const T &data){
+	this->partitions = 1;
+    this->data_address = &data;
+    this->data_size = sizeof(data);
+    this->index = 0;
 }
 
-DataBackup::DataBackup(){
-	this ->partitions = 1;
+template <class T>
+uint8_t DataBackup<T>::getCRC8() {
+    return key.smbus( (const uint8_t*) data_address, (const uint16_t) data_size );
+}
+
+
+/* Function to backup Maze Values to EEPROM
+ * Inputs: Maze Values data location
+ * Outputs: none
+ */
+template <class T>
+uint16_t DataBackup<T>::EEPROMBackup( uint16_t index ){
+  /*Initializing and grabbing the value of the first byte and placing it into a variable*/
+  uint8_t *ptr = (uint8_t*) data_address;
+  /*This loop will run until it reaches the end of the structure in memory*/
+  for(int count = 0; count < data_size; count++){
+    /*We save each byte individually to the EEPROM*/
+    EEPROM_write(index, *ptr);
+    /*Increment the pointer and index*/
+    *ptr++;
+    index++;
+  }
+  return index;
 }
 
 /*
@@ -38,8 +66,8 @@ DataBackup::DataBackup(){
  * @param uiAddress 16 bit interger pointing to the address of the data to write
  * @param ucData 8 bit value signifying the data being written
  */
-
-void DataBackup::EEPROM_write(uint16_t uiAddress, uint8_t ucData) {
+template <class T>
+void DataBackup<T>::EEPROM_write(uint16_t uiAddress, uint8_t ucData) {
   /*Store SREG value before we disable Interrupts*/
   char SREG_save = SREG;
   noInterrupts();
@@ -64,7 +92,8 @@ void DataBackup::EEPROM_write(uint16_t uiAddress, uint8_t ucData) {
  * @param uiAddress 16 bit interger pointing to the address of the data to read
  * @return 8 bit value signifying the data that was read
  */
-uint8_t DataBackup::EEPROM_read(unsigned int uiAddress) {
+template <class T>
+uint8_t DataBackup<T>::EEPROM_read(uint16_t uiAddress) {
   /*Store SREG value before we disable Interrupts*/
   char SREG_save = SREG;
   noInterrupts();
@@ -88,7 +117,8 @@ uint8_t DataBackup::EEPROM_read(unsigned int uiAddress) {
  * INPUTS: None
  * OUTPUTS: None
  */
-void DataBackup::vccReadSetup(){
+template <class T>
+void DataBackup<T>::vccReadSetup(){
   //We want 0b011110 for the mux bits and 0b10 for the Voltage ref bits
   /*Setting voltage refereance to Vcc and ensuring a right adjust*/
   ADMUX &= ~( (1<<REFS1) & (1<<ADLAR) & (1<<MUX0) );
@@ -106,7 +136,8 @@ void DataBackup::vccReadSetup(){
  * INPUTS: None
  * @return vcc10 - Vcc*10;
  */
-uint8_t DataBackup::readVcc(){
+template <class T>
+uint8_t DataBackup<T>::readVcc(){
   /*pushing the ADC registers to ensure we don't mess anything up*/
   uint8_t ADCA_backup = ADCSRA;
   uint8_t ADCB_backup = ADCSRB;
@@ -136,3 +167,79 @@ uint8_t DataBackup::readVcc(){
 }
 
 
+
+/* FastCRC library code is placed under the MIT license
+ * Copyright (c) 2014,2015 Frank Bösing
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+// ================= 8-BIT CRC ===================
+
+/** Constructor
+ */
+FastCRC8::FastCRC8(){}
+
+/** SMBUS CRC
+ * aka CRC-8
+ * @param data Pointer to Data
+ * @param datalen Length of Data
+ * @return CRC value
+ */
+uint8_t FastCRC8::smbus_upd(const uint8_t *data, uint16_t datalen)
+{
+  uint8_t crc = seed;
+  if (datalen) do {
+    crc = pgm_read_byte(&crc_table_smbus[crc ^ *data]);
+    data++;
+  } while (--datalen);
+  seed = crc;
+  return crc;
+}
+
+uint8_t FastCRC8::smbus(const uint8_t *data, const uint16_t datalen)
+{
+  // poly=0x07 init=0x00 refin=false refout=false xorout=0x00 check=0xf4
+  seed = 0x00;
+  return smbus_upd(data, datalen);
+}
+
+/** MAXIM 8-Bit CRC
+ * equivalent to _crc_ibutton_update() in crc16.h from avr_libc
+ * @param data Pointer to Data
+ * @param datalen Length of Data
+ * @return CRC value
+ */
+uint8_t FastCRC8::maxim_upd(const uint8_t *data, uint16_t datalen)
+{
+  uint8_t crc = seed;
+  if (datalen) do {
+    crc = pgm_read_byte(&crc_table_maxim[crc ^ *data]);
+    data++;
+  } while (--datalen);
+  seed = crc;
+  return crc;
+}
+uint8_t FastCRC8::maxim(const uint8_t *data, const uint16_t datalen)
+{
+  // poly=0x31 init=0x00 refin=true refout=true xorout=0x00  check=0xa1
+  seed = 0x00;
+  return maxim_upd(data, datalen);
+}
